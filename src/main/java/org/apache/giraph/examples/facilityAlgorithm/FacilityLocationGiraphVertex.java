@@ -59,6 +59,8 @@ Vertex<LongWritable, FacilityLocationGiraphVertexValue, FloatWritable, DoublePai
 	public static String PHASE_SWITCH = "phaseSwitch"; // aggregator to decide if we have to switch the phase
 	public static float EPS = 0.2f;
 	
+	double initial_alpha = 0;
+	
 	Map<Double, Double> vertexMapping = new HashMap<Double, Double>();
 	int flag_freeze = 0;
 	String ADS = null;
@@ -215,7 +217,7 @@ Vertex<LongWritable, FacilityLocationGiraphVertexValue, FloatWritable, DoublePai
 		double distanceStepSize = 0;
 		
 		if(weightedFlag=="0") {
-			distanceStepSize = 1;
+			distanceStepSize = (1 + EPS);
 		}
 		else {
 			distanceStepSize = Math.round(1 + EPS); // for weighted case.
@@ -253,16 +255,21 @@ Vertex<LongWritable, FacilityLocationGiraphVertexValue, FloatWritable, DoublePai
 			vertexMapping = ((FacilityLocationGiraphWorkerContext) getWorkerContext()).getMapping();
 			ADS = getValue().getADS();
 			aggregate(MAX_AGG_GAMMA, new DoubleWritable(facilityCost));
+			initial_alpha = alpha;
 		}
 		
 		if(phase==true) { // run computation to open facilities
-			double neighborhoodSize = 0.0;
+			double neighborhoodSize = 0.0, prev_neighborhoodSize = 0;;
+			
 			// String ADS = vertexADS.get(vertexId);
 		
-			for(int i=0; i<alpha; i+=distanceStepSize) {
+			int initial_alpha1 = (int) initial_alpha;
+			for(int i=initial_alpha1; i<alpha; i*=distanceStepSize) {
 				neighborhoodSize = getNeighborhoodSize(ADS,frozenClients,i,bottom_k); // only consider those nodes that are not frozen in the i-neighborhood.
+				neighborhoodSize = neighborhoodSize - prev_neighborhoodSize;
 				t_i += neighborhoodSize * ((((1 + EPS)*alpha) - i) - max(0, (alpha-i)));
 				// System.out.println("Ball radius " + i + " Neighborhood size " + neighborhoodSize + " t_i " + t_i);
+				prev_neighborhoodSize = neighborhoodSize;
 			}
 			
 			getValue().setTi(t_i); // save the value of t_i for each vertex
